@@ -45,7 +45,8 @@ class ContextElementClassifier:
             'persistent_state_usage': 0,
             'selective_updates': 0,
             'incremental_belief_updates': 0,
-            'context_aware_decisions': 0
+            'context_aware_decisions': 0,
+            'contradiction_detections': 0
         }
 
     def process_element(self, element: BackstoryElement) -> Dict:
@@ -93,8 +94,7 @@ class ContextElementClassifier:
 
     def _apply_bdh_context_awareness(self, element: BackstoryElement, result: Dict) -> Dict:
         """
-        Apply BDH context-aware adjustments to classification results.
-        This implements incremental belief formation over time.
+        Apply BDH context-aware adjustments to classification results with contradiction detection.
 
         Args:
             element: Current backstory element
@@ -111,13 +111,14 @@ class ContextElementClassifier:
         if char_key not in self.context_memory:
             self.context_memory[char_key] = {
                 'consistency_history': [],
+                'contradiction_history': [],
                 'prediction_history': [],
                 'context_strength': 0.1  # Start with weak context
             }
 
         context = self.context_memory[char_key]
 
-        # BDH-style incremental belief formation
+        # BDH-style incremental belief formation with contradiction awareness
         if context['consistency_history']:
             avg_score = sum(context['consistency_history']) / len(context['consistency_history'])
 
@@ -130,8 +131,37 @@ class ContextElementClassifier:
                 0.5  # Max context influence
             )
 
-            # Apply BDH context adjustment
-            if deviation > 0.25:  # Significant deviation from pattern
+            # Detect significant contradictions
+            if deviation > 0.35:  # Higher threshold for contradiction detection
+                # Significant deviation - potential contradiction
+                context['contradiction_history'].append(base_score)
+                self.bdh_compliance['contradiction_detections'] += 1
+
+                # Apply strong penalty for contradictions
+                contradiction_penalty = deviation * 0.6  # Up to 60% reduction
+                adjusted_score = base_score - contradiction_penalty
+                adjusted_prediction = 0  # Mark as inconsistent
+
+                logger.info(f"Contradiction detected for {char_key}: deviation={deviation:.3f}, "
+                           f"score adjusted from {base_score:.3f} to {adjusted_score:.3f}")
+
+                return {
+                    **result,
+                    'context_score': max(0.0, min(1.0, adjusted_score)),
+                    'prediction': adjusted_prediction,
+                    'bdh_context_adjustment': {
+                        'original_score': base_score,
+                        'adjusted_score': adjusted_score,
+                        'context_strength': context['context_strength'],
+                        'historical_avg': avg_score,
+                        'contradiction_detected': True,
+                        'deviation': deviation
+                    },
+                    'contradiction_detected': True
+                }
+
+            # Apply BDH context adjustment for normal deviations
+            elif deviation > 0.20:  # Moderate deviation from pattern
                 adjustment_factor = deviation * context['context_strength']
 
                 if base_score < avg_score:  # Current is less consistent than average

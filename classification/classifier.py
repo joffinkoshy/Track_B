@@ -158,7 +158,7 @@ class ContextBasedClassifier:
 
     def _evaluate_context_consistency(self) -> float:
         """
-        Evaluate consistency based on BDH state
+        Evaluate consistency based on BDH state with contradiction detection
 
         Returns:
             Context score between 0 and 1
@@ -166,22 +166,50 @@ class ContextBasedClassifier:
         state = self.bdh_state.get_current_state()
         stats = self.bdh_state.get_state_stats()
 
-        # Base consistency metric: inverse of state variance (lower variance = more consistent)
-        variance = stats['variance']
-        context_score = 1.0 - min(variance / 100.0, 1.0)  # Normalize variance
+        # Get recent update signals to check for contradictions
+        recent_updates = self.bdh_state.get_update_trace()
+        contradiction_detected = False
+        total_conflict_magnitude = 0.0
+        contradiction_count = 0
 
-        # Adjust based on update frequency and distribution
+        # Check recent updates for contradiction signals
+        for update in recent_updates[-5:]:  # Check last 5 updates
+            if hasattr(update, 'get') and update.get('potential_contradiction', False):
+                contradiction_detected = True
+                total_conflict_magnitude += update.get('conflict_magnitude', 0.0)
+                contradiction_count += 1
+
+        # Calculate contradiction score (0-1)
+        contradiction_score = 0.0
+        if contradiction_detected:
+            avg_conflict = total_conflict_magnitude / max(contradiction_count, 1)
+            contradiction_score = min(avg_conflict * 2.0, 1.0)  # Normalize to 0-1
+
+        # Base consistency metric: inverse of state variance
+        variance = stats['variance']
+        base_consistency = 1.0 - min(variance / 100.0, 1.0)
+
+        # Contradiction penalty: reduce consistency when contradictions detected
+        if contradiction_detected:
+            # Significant contradiction penalty
+            consistency_penalty = contradiction_score * 0.5  # Up to 50% reduction
+            context_score = base_consistency - consistency_penalty
+        else:
+            # No contradictions, use base consistency
+            context_score = base_consistency
+
+        # Additional factors for nuanced scoring
         update_ratio = min(stats['updates'] / 50.0, 1.0)
         update_distribution = stats['update_positions'] / len(state)
 
-        # Combine factors
-        context_score = (context_score * 0.5 +  # Base variance score
-                      update_ratio * 0.3 +   # Update frequency
-                      update_distribution * 0.2)  # Update distribution
+        # Combine factors with contradiction awareness
+        context_score = (context_score * 0.6 +  # Base consistency (contradiction-aware)
+                      update_ratio * 0.2 +      # Update frequency
+                      update_distribution * 0.2) # Update distribution
 
-        # Additional adjustments based on state characteristics
-        mean_factor = 1.0 - abs(stats['mean'] - 0.5)  # Prefer states centered around 0.5
-        context_score = context_score * 0.7 + mean_factor * 0.3
+        # Sparse updates with high variance = potential contradiction pattern
+        if stats['updates'] > 3 and update_distribution < 0.2 and variance > 10:
+            context_score *= 0.8  # Additional penalty for contradiction patterns
 
         return max(0.0, min(1.0, context_score))
 

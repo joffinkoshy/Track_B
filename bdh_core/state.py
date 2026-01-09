@@ -84,7 +84,7 @@ class BDHState:
 
     def selective_update(self, new_info: np.ndarray, importance: float) -> Dict:
         """
-        Perform deterministic importance-thresholded update.
+        Perform deterministic importance-thresholded update with contradiction detection.
 
         Args:
             new_info: New information vector to incorporate
@@ -99,10 +99,22 @@ class BDHState:
             'confidence_signal': 0.0,
             'importance_estimate': importance,
             'updated_dimensions': [],
-            'evidence_strength': 0.0
+            'evidence_strength': 0.0,
+            'potential_contradiction': False,
+            'conflict_magnitude': 0.0
         }
 
         if importance > self.config.importance_threshold:
+            # Detect potential contradictions before updating
+            current_state = self.persistent_state
+            conflict_mask = np.where(new_info != 0, True, False)
+            conflict_magnitude = float(np.mean(np.abs(new_info[conflict_mask] - current_state[conflict_mask])))
+
+            if conflict_magnitude > 0.3:  # Significant conflict threshold
+                update_signals['potential_contradiction'] = True
+                update_signals['conflict_magnitude'] = conflict_magnitude
+                logger.info(f"Potential contradiction detected: magnitude={conflict_magnitude:.3f}")
+
             # Deterministic update - only update non-zero dimensions
             update_mask = np.where(new_info != 0, True, False)
             self.persistent_state[update_mask] = new_info[update_mask]
