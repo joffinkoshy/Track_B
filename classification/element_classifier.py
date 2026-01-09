@@ -1,20 +1,21 @@
 """
-BDH Element Classifier Module
+Context-based Element Classifier Module
 
 Enhanced classifier specifically designed for individual backstory elements
-while maintaining strong BDH principles for Track B compliance.
+using BDH-inspired representation learning for Track B compliance.
+Implements Option 3: Context/state-based scoring.
 """
 
 from typing import Dict, List, Optional
 from bdh_core.state import BDHState, BDHStateConfig
 from data_processing.csv_loader import BackstoryElement, CSVDataLoader
-from classification.classifier import ConsistencyClassifier
+from classification.classifier import ContextBasedClassifier
 
-class BDHElementClassifier:
+class ContextElementClassifier:
     """
-    BDH-enhanced classifier for individual backstory elements.
-    Implements Track B Option 4: BDH-inspired reasoning components with
-    persistent internal state, selective updates, and incremental belief formation.
+    Context-based classifier for individual backstory elements.
+    Implements Track B Option 3: Context/state-based scoring using BDH-inspired
+    representation learning with persistent internal state and importance-thresholded updates.
     """
 
     def __init__(self, config: Optional[BDHStateConfig] = None):
@@ -25,7 +26,7 @@ class BDHElementClassifier:
             config: Optional BDH state configuration
         """
         # Core BDH classifier
-        self.classifier = ConsistencyClassifier(config)
+        self.classifier = ContextBasedClassifier(config)
 
         # BDH context memory system
         self.data_loader = CSVDataLoader()
@@ -60,8 +61,8 @@ class BDHElementClassifier:
         # Create BDH context for this element
         context = self.data_loader.create_bdh_context(element)
 
-        # Process with BDH classifier (Track B Option 4 implementation)
-        result = self.classifier.process_narrative_backstory_pair(
+        # Process with BDH classifier (Track B Option 3 implementation)
+        result = self.classifier.process_context_pair(
             narrative_text=context,
             backstory_text=element.content,
             character_name=element.character,
@@ -104,7 +105,7 @@ class BDHElementClassifier:
         """
         char_key = f"{element.book_name}_{element.character}"
         base_prediction = result['prediction']
-        base_score = result['consistency_score']
+        base_score = result['context_score']
 
         # Initialize context if not exists
         if char_key not in self.context_memory:
@@ -147,7 +148,7 @@ class BDHElementClassifier:
 
                 return {
                     **result,
-                    'consistency_score': max(0.0, min(1.0, adjusted_score)),
+                    'context_score': max(0.0, min(1.0, adjusted_score)),
                     'prediction': adjusted_prediction,
                     'bdh_context_adjustment': {
                         'original_score': base_score,
@@ -181,7 +182,7 @@ class BDHElementClassifier:
         context = self.context_memory[char_key]
 
         # Update history (BDH persistent state)
-        context['consistency_history'].append(result['consistency_score'])
+        context['consistency_history'].append(result['context_score'])
         context['prediction_history'].append(result['prediction'])
 
         # Keep history manageable (BDH-style memory management)
@@ -212,7 +213,7 @@ class BDHElementClassifier:
         # Track BDH state evolution
         self.processing_stats['bdh_state_evolution'].append({
             'element_id': element.id,
-            'consistency_score': result['consistency_score'],
+            'context_score': result['context_score'],
             'prediction': result['prediction'],
             'state_updates': result['state_stats']['updates'],
             'context_strength': self.context_memory.get(char_key, {}).get('context_strength', 0.1)
@@ -227,9 +228,9 @@ class BDHElementClassifier:
             result['backstory_elements']['assumptions']
         )
 
-    def get_bdh_element_prediction(self, element: BackstoryElement) -> int:
+    def get_context_based_prediction(self, element: BackstoryElement) -> int:
         """
-        Get final BDH-aware prediction for an element.
+        Get final context-aware prediction for an element.
         This combines base prediction with context awareness.
 
         Args:
@@ -266,28 +267,28 @@ class BDHElementClassifier:
 
     def get_track_b_compliance_report(self) -> Dict:
         """
-        Generate Track B compliance report showing BDH principle implementation
+        Generate Track B compliance report showing context-based scoring implementation
 
         Returns:
             Dictionary with compliance metrics and explanations
         """
         return {
-            'track_b_option': 'Option 4: Implementing reasoning components explicitly inspired by BDH principles',
-            'bdh_principles_implemented': {
+            'track_b_option': 'Option 3: Context/state-based scoring using BDH-inspired representation learning',
+            'context_principles_implemented': {
                 'persistent_internal_state': {
                     'usage_count': self.bdh_compliance['persistent_state_usage'],
                     'implementation': 'Context memory tracks character/book history across elements',
                     'evidence': f'Context memory contains {len(self.context_memory)} character contexts'
                 },
-                'selective_sparse_updates': {
+                'importance_thresholded_updates': {
                     'usage_count': self.bdh_compliance['selective_updates'],
-                    'implementation': 'Importance-thresholded state updates in BDHState',
+                    'implementation': 'Importance-thresholded state updates for representation learning',
                     'evidence': f'Average {self.bdh_compliance["selective_updates"] / max(self.processing_stats["total_elements"], 1):.1f} updates per element'
                 },
-                'incremental_belief_formation': {
-                    'usage_count': self.bdh_compliance['incremental_belief_updates'],
-                    'implementation': 'Confidence-weighted belief updates and context-aware adjustments',
-                    'evidence': f'Context-aware decisions made: {self.bdh_compliance["context_aware_decisions"]}'
+                'context_based_scoring': {
+                    'usage_count': self.bdh_compliance['context_aware_decisions'],
+                    'implementation': 'Context-aware score adjustments based on historical patterns',
+                    'evidence': f'Context-aware scoring decisions made: {self.bdh_compliance["context_aware_decisions"]}'
                 }
             },
             'processing_statistics': self.processing_stats,
@@ -298,9 +299,9 @@ class BDHElementClassifier:
             },
             'compliance_summary': (
                 "✅ Persistent Internal State: Context memory maintains evolving character/book knowledge\n"
-                "✅ Selective/Sparse Updates: Importance-based state updates in BDH core\n"
-                "✅ Incremental Belief Formation: Context-aware adjustments and confidence-weighted learning\n"
-                "✅ Track B Option 4: BDH-inspired reasoning components with all required principles"
+                "✅ Importance-thresholded Updates: Importance-based state updates for representation learning\n"
+                "✅ Context-based Scoring: Context-aware score adjustments from state representations\n"
+                "✅ Track B Option 3: Context/state-based scoring with BDH-inspired representation"
             )
         }
 
