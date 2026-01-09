@@ -8,16 +8,16 @@ import pytest
 import numpy as np
 from bdh_core.state import BDHStateConfig
 from data_processing.csv_loader import BackstoryElement
-from classification.classifier import ConsistencyClassifier
-from classification.element_classifier import BDHElementClassifier
+from classification.classifier import ContextBasedClassifier
+from classification.element_classifier import ContextElementClassifier
 
-class TestConsistencyClassifier:
-    """Test the main consistency classifier"""
+class TestContextBasedClassifier:
+    """Test the main context-based classifier"""
 
     def test_initialization(self):
         """Test classifier initialization"""
         config = BDHStateConfig(state_dim=128)
-        classifier = ConsistencyClassifier(config)
+        classifier = ContextBasedClassifier(config)
 
         assert classifier.bdh_state is not None
         assert classifier.narrative_processor is not None
@@ -26,7 +26,7 @@ class TestConsistencyClassifier:
 
     def test_processing_pipeline(self):
         """Test complete processing pipeline"""
-        classifier = ConsistencyClassifier()
+        classifier = ContextBasedClassifier()
 
         # Test data
         narrative = "This is a test narrative about a character's journey."
@@ -34,12 +34,12 @@ class TestConsistencyClassifier:
         character_name = "TestCharacter"
 
         # Process
-        result = classifier.process_narrative_backstory_pair(
+        result = classifier.process_context_pair(
             narrative, backstory, character_name
         )
 
         # Verify result structure
-        assert 'consistency_score' in result
+        assert 'context_score' in result
         assert 'prediction' in result
         assert 'prediction_label' in result
         assert 'narrative_segments' in result
@@ -51,10 +51,10 @@ class TestConsistencyClassifier:
 
     def test_state_reset(self):
         """Test classifier state reset"""
-        classifier = ConsistencyClassifier()
+        classifier = ContextBasedClassifier()
 
         # Process something to change state
-        classifier.process_narrative_backstory_pair(
+        classifier.process_context_pair(
             "Test narrative", "Test backstory", "TestChar"
         )
 
@@ -63,13 +63,13 @@ class TestConsistencyClassifier:
         stats = classifier.get_classifier_stats()
         assert stats['classifications'] == 0
 
-class TestBDHElementClassifier:
-    """Test BDH element classifier"""
+class TestContextElementClassifier:
+    """Test context-based element classifier"""
 
     def test_initialization(self):
         """Test element classifier initialization"""
         config = BDHStateConfig(state_dim=256)
-        classifier = BDHElementClassifier(config)
+        classifier = ContextElementClassifier(config)
 
         assert classifier.classifier is not None
         assert classifier.data_loader is not None
@@ -77,7 +77,7 @@ class TestBDHElementClassifier:
 
     def test_element_processing(self):
         """Test individual element processing"""
-        classifier = BDHElementClassifier()
+        classifier = ContextElementClassifier()
 
         # Create test element
         element = BackstoryElement(
@@ -93,7 +93,7 @@ class TestBDHElementClassifier:
         result = classifier.process_element(element)
 
         # Verify result
-        assert 'consistency_score' in result
+        assert 'context_score' in result
         assert 'prediction' in result
         assert 'element_id' in result
         assert result['element_id'] == "test1"
@@ -101,8 +101,8 @@ class TestBDHElementClassifier:
         assert result['actual_label'] == "consistent"
 
     def test_context_awareness(self):
-        """Test BDH context awareness functionality"""
-        classifier = BDHElementClassifier()
+        """Test context awareness functionality"""
+        classifier = ContextElementClassifier()
 
         # Create related elements
         element1 = BackstoryElement(
@@ -133,7 +133,7 @@ class TestBDHElementClassifier:
 
     def test_batch_processing(self):
         """Test batch processing of elements"""
-        classifier = BDHElementClassifier()
+        classifier = ContextElementClassifier()
 
         # Create test elements
         elements = [
@@ -151,12 +151,12 @@ class TestBDHElementClassifier:
         results = classifier.process_batch(elements)
 
         assert len(results) == 3
-        assert all('consistency_score' in result for result in results)
+        assert all('context_score' in result for result in results)
         assert all('prediction' in result for result in results)
 
     def test_compliance_reporting(self):
         """Test Track B compliance reporting"""
-        classifier = BDHElementClassifier()
+        classifier = ContextElementClassifier()
 
         # Process some elements to generate compliance data
         element = BackstoryElement(
@@ -170,51 +170,51 @@ class TestBDHElementClassifier:
 
         # Verify report structure
         assert 'track_b_option' in report
-        assert 'bdh_principles_implemented' in report
+        assert 'context_principles_implemented' in report
         assert 'processing_statistics' in report
         assert 'context_memory_stats' in report
         assert 'compliance_summary' in report
 
         # Verify compliance claims
-        assert "Option 4" in report['track_b_option']
+        assert "Option 3" in report['track_b_option']
         assert "Persistent Internal State" in report['compliance_summary']
-        assert "Selective/Sparse Updates" in report['compliance_summary']
-        assert "Incremental Belief Formation" in report['compliance_summary']
+        assert "Importance-thresholded Updates" in report['compliance_summary']
+        assert "Context-based Scoring" in report['compliance_summary']
 
 class TestClassificationEdgeCases:
     """Test edge cases in classification"""
 
     def test_empty_content(self):
         """Test handling of empty content"""
-        classifier = ConsistencyClassifier()
+        classifier = ContextBasedClassifier()
 
-        result = classifier.process_narrative_backstory_pair(
+        result = classifier.process_context_pair(
             "Narrative text", "", "TestChar"
         )
 
-        assert 'consistency_score' in result
+        assert 'context_score' in result
         assert result['prediction'] in [0, 1]  # Should still produce valid prediction
 
     def test_very_short_texts(self):
         """Test handling of very short texts"""
-        classifier = ConsistencyClassifier()
+        classifier = ContextBasedClassifier()
 
-        result = classifier.process_narrative_backstory_pair(
+        result = classifier.process_context_pair(
             "Short", "Text", "Char"
         )
 
-        assert 'consistency_score' in result
+        assert 'context_score' in result
         assert result['prediction'] in [0, 1]
 
     def test_special_characters(self):
         """Test handling of special characters"""
-        classifier = ConsistencyClassifier()
+        classifier = ContextBasedClassifier()
 
-        result = classifier.process_narrative_backstory_pair(
+        result = classifier.process_context_pair(
             "Text with !@#$%^&*() characters",
             "More special chars: {}[]|\\;:'\",./<>?",
             "Char"
         )
 
-        assert 'consistency_score' in result
+        assert 'context_score' in result
         assert result['prediction'] in [0, 1]

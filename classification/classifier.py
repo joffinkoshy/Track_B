@@ -1,5 +1,5 @@
 """
-Consistency Classifier Module
+Context-based Consistency Classifier Module
 
 Main classifier that integrates BDH components for narrative consistency evaluation.
 """
@@ -11,7 +11,7 @@ from data_processing.narrative import NarrativeProcessor, NarrativeSegment
 from data_processing.backstory import BackstoryAnalyzer, CharacterBackstory
 from representation.vectorizer import TextVectorizer, SegmentVectorizer
 
-class ConsistencyClassifier:
+class ContextBasedClassifier:
     """Main classifier that uses BDH representations for consistency evaluation"""
 
     def __init__(self, config: Optional[BDHStateConfig] = None):
@@ -36,7 +36,7 @@ class ConsistencyClassifier:
             'classifications': 0
         }
 
-    def process_narrative_backstory_pair(
+    def process_context_pair(
         self,
         narrative_text: str,
         backstory_text: str,
@@ -53,7 +53,7 @@ class ConsistencyClassifier:
             metadata: Optional additional metadata
 
         Returns:
-            Dictionary containing classification results and metrics
+            Dictionary containing scoring results and metrics
         """
         # Reset state for new pair
         self.bdh_state.reset_state()
@@ -71,15 +71,15 @@ class ConsistencyClassifier:
         self._create_representations(narrative_segments, backstory)
 
         # Evaluate consistency
-        consistency_score = self._evaluate_consistency()
+        context_score = self._evaluate_context_consistency()
 
         # Update classification count
         self.processing_stats['classifications'] += 1
 
         return {
-            'consistency_score': consistency_score,
-            'prediction': 1 if consistency_score > 0.5 else 0,
-            'prediction_label': 'Consistent' if consistency_score > 0.5 else 'Inconsistent',
+            'context_score': context_score,
+            'prediction': 1 if context_score > 0.5 else 0,
+            'prediction_label': 'Consistent' if context_score > 0.5 else 'Inconsistent',
             'narrative_segments': len(narrative_segments),
             'backstory_elements': self.backstory_analyzer.get_analysis_stats(backstory),
             'state_stats': self.bdh_state.get_state_stats(),
@@ -156,34 +156,34 @@ class ConsistencyClassifier:
 
         return min(max(importance, 0.1), 1.0)  # Ensure within [0.1, 1.0] range
 
-    def _evaluate_consistency(self) -> float:
+    def _evaluate_context_consistency(self) -> float:
         """
         Evaluate consistency based on BDH state
 
         Returns:
-            Consistency score between 0 and 1
+            Context score between 0 and 1
         """
         state = self.bdh_state.get_current_state()
         stats = self.bdh_state.get_state_stats()
 
         # Base consistency metric: inverse of state variance (lower variance = more consistent)
         variance = stats['variance']
-        consistency = 1.0 - min(variance / 100.0, 1.0)  # Normalize variance
+        context_score = 1.0 - min(variance / 100.0, 1.0)  # Normalize variance
 
         # Adjust based on update frequency and distribution
         update_ratio = min(stats['updates'] / 50.0, 1.0)
         update_distribution = stats['update_positions'] / len(state)
 
         # Combine factors
-        consistency = (consistency * 0.5 +  # Base variance score
+        context_score = (context_score * 0.5 +  # Base variance score
                       update_ratio * 0.3 +   # Update frequency
                       update_distribution * 0.2)  # Update distribution
 
         # Additional adjustments based on state characteristics
         mean_factor = 1.0 - abs(stats['mean'] - 0.5)  # Prefer states centered around 0.5
-        consistency = consistency * 0.7 + mean_factor * 0.3
+        context_score = context_score * 0.7 + mean_factor * 0.3
 
-        return max(0.0, min(1.0, consistency))
+        return max(0.0, min(1.0, context_score))
 
     def get_classifier_stats(self) -> dict:
         """Get overall classifier statistics"""
@@ -204,7 +204,7 @@ class ConsistencyClassifier:
             'classifications': 0
         }
 
-class ConsistencyEvaluator:
+class ContextEvaluator:
     """Evaluates classifier performance and provides analysis"""
 
     def __init__(self):
@@ -216,8 +216,8 @@ class ConsistencyEvaluator:
             'avg_consistency_score': 0.0
         }
 
-    def record_result(self, result: Dict) -> None:
-        """Record a classification result for evaluation"""
+    def record_context_result(self, result: Dict) -> None:
+        """Record a scoring result for evaluation"""
         self.results_history.append(result)
         self.metrics['total_evaluations'] += 1
 
@@ -250,16 +250,16 @@ class ConsistencyEvaluator:
             return {'status': 'No results to analyze'}
 
         # Calculate statistics
-        consistency_scores = [r['consistency_score'] for r in self.results_history]
+        context_scores = [r['context_score'] for r in self.results_history]
         predictions = [r['prediction'] for r in self.results_history]
 
         return {
             'score_stats': {
-                'mean': float(np.mean(consistency_scores)),
-                'std': float(np.std(consistency_scores)),
-                'min': float(np.min(consistency_scores)),
-                'max': float(np.max(consistency_scores)),
-                'median': float(np.median(consistency_scores))
+                'mean': float(np.mean(context_scores)),
+                'std': float(np.std(context_scores)),
+                'min': float(np.min(context_scores)),
+                'max': float(np.max(context_scores)),
+                'median': float(np.median(context_scores))
             },
             'prediction_distribution': {
                 'consistent': sum(predictions),
