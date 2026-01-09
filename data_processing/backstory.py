@@ -152,3 +152,6 @@ class BackstoryAnalyzer:
                               len(backstory.motivations) + len(backstory.assumptions)),
             'context_info': len(backstory.metadata) - 3  # Exclude basic metadata
         }
+
+
+# hello
